@@ -1,24 +1,12 @@
 use fast_near_duplicate_matching as lib;
 
-use clap::Parser;
 use rand::Rng;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// similarity threshold
-    #[arg(short, long, default_value_t = 0.8)]
-    sim_threshold: f32,
-
-    /// ngram size
-    #[arg(short, long, default_value_t = 10)]
-    ngram_size: usize,
-}
-
 fn criterion_benchmark(c: &mut Criterion) {
-    let args = Args::parse();
+    let sim_threshold = 0.8;
+    let ngram_size = 30;
     let query_len = 50;
     let mut rng = rand::thread_rng();
     let query_num = 30000;
@@ -36,34 +24,36 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let sub_doc = &doc[24..24 + query_len];
     queries.push(sub_doc.to_vec());
-    let mut sub_doc = sub_doc.to_vec();
-    for _ in 0..5 {
-        let idx = rng.gen_range(0..query_len);
-        sub_doc[idx] = 0;
+    for i in 0..5 {
+        let mut copy_sub_doc = sub_doc.to_vec();
+        for j in 0..5 {
+            let random_idx = rng.gen_range(0..query_len);
+            copy_sub_doc[random_idx] = 0;
+        }
+        queries.push(copy_sub_doc);
     }
-    queries.push(sub_doc);
 
     c.bench_function("has_doc_duplicate", |b| {
         b.iter(|| {
-            let ngram = lib::ngram(&queries[0], args.ngram_size);
+            let ngram = lib::ngram(&queries[0], ngram_size);
             lib::has_doc_duplicate(
                 doc.clone(),
                 &queries[0],
                 &ngram,
-                args.sim_threshold as f64,
-                args.ngram_size,
+                sim_threshold as f64,
+                ngram_size,
             )
         })
     });
     c.bench_function("has_doc_duplicate_rolling", |b| {
         b.iter(|| {
-            let ngram = lib::ngram_rolling(&queries[0], args.ngram_size);
+            let ngram = lib::ngram_rolling(&queries[0], ngram_size);
             lib::has_doc_duplicate_rolling(
                 doc.clone(),
                 &queries[0],
                 &ngram,
-                args.sim_threshold as f64,
-                args.ngram_size,
+                sim_threshold as f64,
+                ngram_size,
             )
         })
     });

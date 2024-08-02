@@ -6,13 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libflate = "2.0.0"
 clap = { version = "4.5.1", features = ["derive"] }
-walkdir = "2.4.0"
 fxhash = "0.2.1"
-rustc-hash = "1.1.0"
-serde = { version = "1.0.197", features = ["derive"] }
-rand = "0.8.4"
+rand = "0.8.5"
+rustc-hash = "2.0.0"
+
+
 
 
 [dev-dependencies]
