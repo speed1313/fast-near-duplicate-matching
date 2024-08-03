@@ -5,8 +5,8 @@ use rand::Rng;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let sim_threshold = 0.8;
-    let ngram_size = 30;
+    let sim_threshold = 0.6;
+    let ngram_size = 10;
     let query_len = 50;
     let mut rng = rand::thread_rng();
     let query_num = 30000;

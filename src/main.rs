@@ -7,7 +7,7 @@ use rand::Rng;
 #[command(version, about, long_about = None)]
 struct Args {
     /// similarity threshold
-    #[arg(short, long, default_value_t = 0.8)]
+    #[arg(short, long, default_value_t = 0.6)]
     sim_threshold: f32,
 
     /// ngram size
@@ -89,12 +89,8 @@ fn main() -> std::io::Result<()> {
     let mut matched_query = Vec::new();
     let now = std::time::Instant::now();
     for query in &queries {
-        let is_matching = lib::has_doc_duplicate_naive(
-            doc.clone(),
-            &query,
-            args.sim_threshold as f64,
-            args.ngram_size,
-        );
+        let is_matching =
+            lib::has_doc_duplicate_naive(doc.clone(), &query, args.sim_threshold as f64);
         if is_matching {
             count += 1;
             matched_query.push(query);

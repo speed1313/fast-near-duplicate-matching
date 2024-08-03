@@ -198,7 +198,7 @@ pub fn has_doc_duplicate(
     return false;
 }
 
-pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], sim_threshold: f64, n: usize) -> bool {
+pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], sim_threshold: f64) -> bool {
     for start in 0..doc.len() - query.len() {
         let sim = weighted_jaccard(&query, &doc[start..start + query.len()]);
         if sim >= sim_threshold {
