@@ -1,7 +1,15 @@
+use flate2::read::GzDecoder;
 use fxhash;
+use log::info;
+use rayon::prelude::*;
 use rustc_hash::FxHashSet as HashSet;
+use serde_json::Value;
 use std::cmp::max;
 use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
 
 struct RollingHash {
     base: u64,
@@ -131,10 +139,10 @@ mod tests {
         let query = vec![1, 2, 3, 4, 5];
         let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         let query_ngram = ngram(&query, 10);
-        let sim_threshold = 0.8;
+        let threshold = 0.8;
         let n = 10;
         assert_eq!(
-            has_doc_duplicate(doc, &query, &query_ngram, sim_threshold, n),
+            has_doc_duplicate(doc, &query, &query_ngram, threshold, n),
             true
         );
     }
@@ -178,7 +186,7 @@ pub fn has_doc_duplicate(
     doc: Vec<i32>,
     query: &[i32],
     query_ngram: &HashSet<usize>,
-    sim_threshold: f64,
+    threshold: f64,
     n: usize,
 ) -> bool {
     for start in 0..doc.len() - query.len() {
@@ -190,7 +198,7 @@ pub fn has_doc_duplicate(
         for s in inner_start..(start + 1) {
             let end = s + query.len();
             let sim = weighted_jaccard(&query, &doc[s..end]);
-            if sim >= sim_threshold {
+            if sim >= threshold {
                 return true;
             }
         }
@@ -198,10 +206,10 @@ pub fn has_doc_duplicate(
     return false;
 }
 
-pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], sim_threshold: f64) -> bool {
+pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], threshold: f64) -> bool {
     for start in 0..doc.len() - query.len() {
         let sim = weighted_jaccard(&query, &doc[start..start + query.len()]);
-        if sim >= sim_threshold {
+        if sim >= threshold {
             return true;
         }
     }
@@ -212,7 +220,7 @@ pub fn has_doc_duplicate_rolling(
     doc: Vec<i32>,
     query: &[i32],
     query_ngram: &HashSet<usize>,
-    sim_threshold: f64,
+    threshold: f64,
     n: usize,
 ) -> bool {
     let mut rollinghash = RollingHash::new();
@@ -230,7 +238,7 @@ pub fn has_doc_duplicate_rolling(
         for s in inner_start..(start + 1) {
             let end = s + query.len();
             let sim = weighted_jaccard(&query, &doc[s..end]);
-            if sim >= sim_threshold {
+            if sim >= threshold {
                 return true;
             }
         }
@@ -238,4 +246,86 @@ pub fn has_doc_duplicate_rolling(
         rollinghash.slide(doc[start] as u64, doc[start + n] as u64);
     }
     return false;
+}
+
+pub fn convert_to_token_ids(line: String) -> Vec<i32> {
+    let json_data: Value = serde_json::from_str(&line).expect("Failed to parse JSON");
+    if let Some(token_ids) = json_data["token_ids"].as_array() {
+        let token_ids: Vec<i32> = token_ids
+            .iter()
+            .filter_map(|v| v.as_i64())
+            .map(|v| v as i32)
+            .collect();
+        return token_ids;
+    }
+    Vec::new()
+}
+
+pub fn read_dir_recursive(dir_path: impl AsRef<Path>) -> Vec<PathBuf> {
+    let mut all_paths = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                all_paths.extend(read_dir_recursive(&path));
+            } else {
+                all_paths.push(path);
+            }
+        }
+    }
+    all_paths.sort_by_key(|path| {
+        // split file path with "/"
+        let filename = path.file_name().unwrap().to_str().unwrap();
+        let numeric_part = filename
+            .chars()
+            .take_while(|c| c.is_numeric())
+            .collect::<String>(); // ファイル名から数字部分を抽出
+        numeric_part.parse::<u32>().unwrap_or(0) // 数字部分を数値に変換
+    });
+
+    all_paths
+}
+
+pub fn search(query: &Vec<Vec<i32>>, path: &str, threshold: f32, n: usize) -> Vec<i32> {
+    let query_list = query.clone();
+    let query_ngram_list = query_list
+        .iter()
+        .map(|query| ngram(query, n))
+        .collect::<Vec<HashSet<usize>>>();
+
+    let file = File::open(path).expect("Failed to open file");
+    //let reader = BufReader::new(MultiGzDecoder::new(file));
+    let reader = BufReader::new(GzDecoder::new(file));
+    let query_num = query_list.len();
+
+    info!("path: {:?} start loading token_ids_list", path);
+    let mut token_ids_list = Vec::new();
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            let token_ids = convert_to_token_ids(line);
+            token_ids_list.push(token_ids);
+        }
+    }
+    info!("loaded token_ids_list");
+
+    // multi thread per query
+    let count_list = (0..query_num)
+        .into_par_iter()
+        .map(|i| {
+            let query = &query_list[i];
+            let query_ngram = &query_ngram_list[i];
+            let mut count = 0;
+
+            for token_ids in &token_ids_list {
+                if has_doc_duplicate(token_ids.clone(), &query, &query_ngram, threshold as f64, n) {
+                    count += 1;
+                }
+            }
+            info!("query: {:?} count: {:?}", i, count);
+            count
+        })
+        .collect::<Vec<i32>>()
+        .try_into()
+        .unwrap();
+    count_list
 }

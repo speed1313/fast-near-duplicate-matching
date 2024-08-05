@@ -1,104 +1,116 @@
 mod lib;
 
 use clap::Parser;
-use rand::Rng;
+use env_logger;
+use log::info;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::env;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::Path;
+use std::path::PathBuf;
+
+#[derive(Serialize, Deserialize)]
+struct MyData {
+    iteration: u32,
+    dataset_idx: u32,
+    dataset_name: String,
+    doc_ids: Vec<u32>,
+    text: String,
+    token_ids: Vec<u32>,
+    completion_stats: CompletionStats,
+    metrics: Vec<f64>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CompletionStats {
+    count: u32,
+    last_iteration: u32,
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// directory to search
+    #[arg(long, default_value = "path/to/sample_data")]
+    search_dir: String,
+
+    /// query path
+    #[arg(short, long, default_value = "path/to/sample_data/query.jsonl")]
+    query_path: String,
+
     /// similarity threshold
     #[arg(short, long, default_value_t = 0.6)]
-    sim_threshold: f32,
+    threshold: f32,
 
     /// ngram size
     #[arg(short, long, default_value_t = 10)]
-    ngram_size: usize,
+    n: usize,
+
+    /// start file idx
+    #[arg(long, default_value_t = 0)]
+    start_file_idx: usize,
+
+    /// end file idx
+    #[arg(long, default_value_t = 142)]
+    end_file_idx: usize,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Args::parse();
-    let query_len = 50;
-    let mut rng = rand::thread_rng();
-    let query_num = 30000;
-    let mut queries = Vec::new();
-    for _ in 0..query_num {
-        let query = (0..query_len)
-            .map(|_| rng.gen_range(0..50254))
-            .collect::<Vec<i32>>();
-        queries.push(query);
+
+    env::set_var("RUST_LOG", "info");
+    env_logger::init();
+
+    // read query
+    let file = File::open(&args.query_path)?;
+    let reader = BufReader::new(file);
+    let mut query_list_all = Vec::new();
+    for line in reader.lines() {
+        let line = line.unwrap();
+        let v: Value = serde_json::from_str(&line).unwrap();
+        let query: Vec<i32> = serde_json::from_value(v["token_ids"].clone()).unwrap();
+        query_list_all.push(query);
     }
 
-    let doc = (0..2048)
-        .map(|_| rng.gen_range(0..50254))
-        .collect::<Vec<i32>>();
-    let sub_doc = &doc[24..24 + query_len];
-    queries.push(sub_doc.to_vec());
-    let mut sub_doc = sub_doc.to_vec();
-    for _ in 0..5 {
-        let idx = rng.gen_range(0..query_len);
-        sub_doc[idx] = 0;
-    }
-    queries.push(sub_doc);
+    info!("query_list_all: {:?}", query_list_all.len());
 
-    let mut matched_query = Vec::new();
-
-    let now = std::time::Instant::now();
-    let mut count = 0;
-    for query in &queries {
-        let ngram = lib::ngram(&query, args.ngram_size);
-        let is_matching = lib::has_doc_duplicate(
-            doc.clone(),
-            &query,
-            &ngram,
-            args.sim_threshold as f64,
-            args.ngram_size,
+    // search path list
+    let search_path_list = lib::read_dir_recursive(Path::new(&args.search_dir));
+    let search_path_list: Vec<&PathBuf> = search_path_list
+        .iter()
+        .filter(|path| {
+            let parts: Vec<&str> = path.to_str().unwrap().split("/").collect();
+            let extracted_part = parts[parts.len() - 1];
+            if extracted_part.contains("-") == false {
+                return false;
+            }
+            let file_idx: usize = extracted_part.split("-").collect::<Vec<&str>>()[1]
+                .split(".")
+                .collect::<Vec<&str>>()[0]
+                .parse()
+                .unwrap();
+            args.start_file_idx * 1000 <= file_idx && file_idx <= args.end_file_idx * 1000
+        })
+        .collect();
+    info!("search_path_list len: {:?}", search_path_list.len());
+    let mut count = vec![0; query_list_all.len()];
+    for (i, path) in search_path_list.iter().enumerate() {
+        let count_per_path = lib::search(
+            &query_list_all,
+            path.to_str().unwrap(),
+            args.threshold,
+            args.n,
         );
-        if is_matching {
-            count += 1;
-            matched_query.push(query);
+        for (j, c) in count_per_path.iter().enumerate() {
+            count[j] += c;
         }
+        info!("path idx: {:?} finished", i);
     }
-    println!("elapsed: {:?}", now.elapsed());
-    println!("count: {}", count);
-    println!("matched_query: {:?}", matched_query);
 
-    // rolling hash test
-    let mut count = 0;
-    let mut matched_query = Vec::new();
-    let now = std::time::Instant::now();
-    for query in &queries {
-        let ngram = lib::ngram_rolling(&query, args.ngram_size);
-        let is_matching = lib::has_doc_duplicate_rolling(
-            doc.clone(),
-            &query,
-            &ngram,
-            args.sim_threshold as f64,
-            args.ngram_size,
-        );
-        if is_matching {
-            count += 1;
-            matched_query.push(query);
-        }
-    }
-    println!("elapsed: {:?}", now.elapsed());
-    println!("count: {}", count);
-    println!("matched_query: {:?}", matched_query);
-
-    // rolling hash test
-    let mut count = 0;
-    let mut matched_query = Vec::new();
-    let now = std::time::Instant::now();
-    for query in &queries {
-        let is_matching =
-            lib::has_doc_duplicate_naive(doc.clone(), &query, args.sim_threshold as f64);
-        if is_matching {
-            count += 1;
-            matched_query.push(query);
-        }
-    }
-    println!("elapsed: {:?}", now.elapsed());
-    println!("count: {}", count);
-    println!("matched_query: {:?}", matched_query);
+    info!("count: {:?}", count);
 
     Ok(())
 }

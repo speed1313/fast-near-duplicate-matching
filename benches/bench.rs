@@ -5,8 +5,8 @@ use rand::Rng;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let sim_threshold = 0.6;
-    let ngram_size = 10;
+    let threshold = 0.6;
+    let n = 10;
     let query_len = 50;
     let mut rng = rand::thread_rng();
     let query_num = 30000;
@@ -35,26 +35,14 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("has_doc_duplicate", |b| {
         b.iter(|| {
-            let ngram = lib::ngram(&queries[0], ngram_size);
-            lib::has_doc_duplicate(
-                doc.clone(),
-                &queries[0],
-                &ngram,
-                sim_threshold as f64,
-                ngram_size,
-            )
+            let ngram = lib::ngram(&queries[0], n);
+            lib::has_doc_duplicate(doc.clone(), &queries[0], &ngram, threshold as f64, n)
         })
     });
     c.bench_function("has_doc_duplicate_rolling", |b| {
         b.iter(|| {
-            let ngram = lib::ngram_rolling(&queries[0], ngram_size);
-            lib::has_doc_duplicate_rolling(
-                doc.clone(),
-                &queries[0],
-                &ngram,
-                sim_threshold as f64,
-                ngram_size,
-            )
+            let ngram = lib::ngram_rolling(&queries[0], n);
+            lib::has_doc_duplicate_rolling(doc.clone(), &queries[0], &ngram, threshold as f64, n)
         })
     });
     // c.bench_function("has_doc_duplicate_naive", |b| {
@@ -62,8 +50,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     //         lib::has_doc_duplicate_naive(
     //             doc.clone(),
     //             &queries[0],
-    //             args.sim_threshold as f64,
-    //             args.ngram_size,
+    //             args.threshold as f64,
+    //             args.n,
     //         )
     //     })
     // });

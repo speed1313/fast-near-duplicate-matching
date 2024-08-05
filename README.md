@@ -12,7 +12,7 @@ This repository contains the implementation of the fast near-duplicate matching 
 
 #### Pseudo-code in Python
 ```python
-def fast_near_duplicate_matching(s: list[int], d: list[int], n: int, delta: float) -> bool:
+def fast_near_duplicate_matching(s: list[int], d: list[int], n: int, threshold: float) -> bool:
     l_s = len(s)
     l_d = len(d)
     H = set(ngram(s, n))
@@ -20,7 +20,7 @@ def fast_near_duplicate_matching(s: list[int], d: list[int], n: int, delta: floa
         if d[i:i+n] in H:
             for j in range(max(i - l_s + n, 0), i):
                 t = d[j:j+l_s]
-                if Jaccard_W(s, t) >= delta:
+                if Jaccard_W(s, t) >= threshold:
                     return True
     return False
 ```
@@ -32,19 +32,39 @@ When the size of $n$ of $n$-gram is small, fxhash is faster than rolling hash. H
 
 
 ## How to run
-You can calculate the near-duplicates of a query in a random document using three methods:
-- Fast near-duplicate matching with fxhash
-- Fast near-duplicate matching with rolling hash
-- Naive near-duplicate matching
+You can count the near-duplicates of queries in the document (sample queries (2 queries) and documents (100 documents) are in the `sample_data` folder) by running the following command:
 
 ```bash
-cargo run --release -- --sim-threshold 0.6 --ngram-size 10
+$ cargo run --release -- --search-dir ./sample_data --query-path ./sample_data/query.jsonl --threshold 0.6 --n 10
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] query_list_all: 2
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] search_path_list len: 1
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] path: "./sample_data/pythia-00000-00999.jsonl.gz" start loading token_ids_list
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] loaded token_ids_list
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] query: 0 count: 1
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] query: 1 count: 1
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] path idx: 0 finished
+[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] count: [1, 1]
 ```
 
-## Benchmark
-You can run the benchmark for the three methods using the following command:
+### Exploring the Pythia Dataset
+You can download the Pythia dataset from [here](https://github.com/EleutherAI/pythia?tab=readme-ov-file#exploring-the-dataset)
+After downloading the dataset, you can run the following command:
 ```bash
-cargo bench
+$ python scripts/prepare_pythia.py --output_dir path/to/output/folder --pythia_data_path path/to/merged/folder/document
+```
+Then, you can run the following command:
+```bash
+$ cargo run --release -- --search-dir path/to/output/folder --query-path path/to/output/folder/query.jsonl --threshold 0.6 --n 10
+```
+
+
+## Benchmark
+You can run the benchmark for the three methods:
+- Fast near-duplicate matching with **fxhash**
+- Fast near-duplicate matching with **rolling hash**
+- **Naive** near-duplicate matching
+```bash
+$ cargo bench
 ```
 
 
