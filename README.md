@@ -72,4 +72,5 @@ $ cargo bench
 ## References
 - [Rabin-Karp algorithm](https://en.wikipedia.org/wiki/Rabin%E2%80%93Karp_algorithm)
 - [fxhash](https://docs.rs/fxhash/latest/fxhash/)
+- [Pythia](https://github.com/EleutherAI/pythia)
 
