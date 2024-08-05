@@ -36,12 +36,14 @@ dtypes = {
     8: np.uint16,
 }
 
+
 def index_file_path(prefix_path):
     return prefix_path + ".idx"
 
 
 def data_file_path(prefix_path):
     return prefix_path + ".bin"
+
 
 class MMapIndexedDataset(torch.utils.data.Dataset):
     class Index(object):
