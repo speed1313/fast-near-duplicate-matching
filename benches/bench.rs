@@ -1,4 +1,4 @@
-use fast_near_duplicate_matching as lib;
+use near_duplicate_matching as lib;
 
 use rand::Rng;
 

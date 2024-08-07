@@ -1,17 +1,26 @@
-use flate2::read::GzDecoder;
+//! # near_duplicate_matching
+//!
+//! `near_duplicate_matching` is a library for finding near-duplicate spans in a document.
+//! It provides functions to compute n-grams of a text, calculate weighted jaccard similarity, and check whether the document contains spans whose similarity to the query is above a threshold.
+
 use fxhash;
-use log::info;
-use rayon::prelude::*;
+
 use rustc_hash::FxHashSet as HashSet;
-use serde_json::Value;
+
 use std::cmp::max;
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::BufRead;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
 
-struct RollingHash {
+/// A struct for rolling hash.
+/// # Examples
+/// ```
+/// let text = vec![1, 2, 3, 4, 5];
+/// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+/// for c in text.iter().map(|v| *v as u64) {
+///    rolling_hash.append(c);
+/// }
+/// assert_eq!(rolling_hash.get_hash(), (1 * u64::pow(31, 4) + 2 * u64::pow(31, 3) + 3 * u64::pow(31, 2) + 4 * 31 + 5) % 1_000_000_007);
+/// ```
+pub struct RollingHash {
     base: u64,
     modulo: u64,
     hash: u64,
@@ -20,7 +29,7 @@ struct RollingHash {
 }
 
 impl RollingHash {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             base: 31,
             modulo: 1_000_000_007,
@@ -30,7 +39,17 @@ impl RollingHash {
         }
     }
 
-    fn append(&mut self, char: u64) {
+    /// Append a character to the window.
+    /// # Examples
+    /// ```
+    /// let text = vec![1, 2, 3, 4, 5];
+    /// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+    /// for c in text.iter().map(|v| *v as u64) {
+    ///   rolling_hash.append(c);
+    /// }
+    /// assert_eq!(rolling_hash.get_hash(), (1 * u64::pow(31, 4) + 2 * u64::pow(31, 3) + 3 * u64::pow(31, 2) + 4 * 31 + 5) % 1_000_000_007);
+    /// ```
+    pub fn append(&mut self, char: u64) {
         self.hash = (self.hash * self.base + char) % self.modulo;
         self.window_size += 1;
         if self.window_size == 1 {
@@ -40,10 +59,35 @@ impl RollingHash {
         }
     }
 
-    fn slide(&mut self, old_char: u64, new_char: u64) {
+    /// Slide the window by removing the old character and adding the new character.
+    /// # Examples
+    /// ```
+    /// let text = vec![1, 2, 3, 4, 5];
+    /// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+    /// for c in text.iter().map(|v| *v as u64) {
+    ///     rolling_hash.append(c);
+    /// }
+    /// rolling_hash.slide(1, 6);
+    /// assert_eq!(rolling_hash.get_hash(), (2 * u64::pow(31, 4) + 3 * u64::pow(31, 3) + 4 * u64::pow(31, 2) + 5 * 31 + 6) % 1_000_000_007);
+    /// ```
+    pub fn slide(&mut self, old_char: u64, new_char: u64) {
         self.hash =
             ((self.hash + self.modulo) - (old_char * self.base_power) % self.modulo) % self.modulo;
         self.hash = (self.hash * self.base + new_char) % self.modulo;
+    }
+
+    /// Get the hash value of the current window.
+    /// # Examples
+    /// ```
+    /// let text = vec![1, 2, 3, 4, 5];
+    /// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+    /// for c in text.iter().map(|v| *v as u64) {
+    ///     rolling_hash.append(c);
+    /// }
+    /// assert_eq!(rolling_hash.get_hash(), (1 * u64::pow(31, 4) + 2 * u64::pow(31, 3) + 3 * u64::pow(31, 2) + 4 * 31 + 5) % 1_000_000_007);
+    /// ```
+    pub fn get_hash(&self) -> u64 {
+        self.hash
     }
 }
 
@@ -55,10 +99,13 @@ fn create_frequency_vector<'a>(set: &'a [i32]) -> HashMap<&'a i32, usize> {
     frequency_vector
 }
 
-fn weighted_jaccard_similarity(x: &HashMap<&i32, usize>, y: &HashMap<&i32, usize>) -> f64 {
+/// Compute weighted jaccard similarity between two texts.
+pub fn weighted_jaccard(text1: &[i32], text2: &[i32]) -> f64 {
+    let x = create_frequency_vector(text1);
+    let y = create_frequency_vector(text2);
     let mut intersection_frequency = 0;
-    for (element, &frequency1) in x {
-        if let Some(&frequency2) = y.get(element) {
+    for (element, frequency1) in &x {
+        if let Some(frequency2) = y.get(element) {
             intersection_frequency += frequency1.min(frequency2);
         }
     }
@@ -73,15 +120,16 @@ fn weighted_jaccard_similarity(x: &HashMap<&i32, usize>, y: &HashMap<&i32, usize
     }
 }
 
-fn weighted_jaccard(text1: &[i32], text2: &[i32]) -> f64 {
-    let x = create_frequency_vector(text1);
-    let y = create_frequency_vector(text2);
-
-    let similarity = weighted_jaccard_similarity(&x, &y);
-
-    similarity
-}
-
+/// Compute n-grams of a text using fxhash.
+///
+/// # Examples
+///
+/// ```
+/// let text = vec![1, 2, 3, 4, 5];
+/// let ngrams = near_duplicate_matching::ngram(&text, 2);
+/// assert_eq!(ngrams.len(), 4);
+/// assert_eq!(ngrams.contains(&fxhash::hash(&vec![1, 2])), true);
+/// ```
 pub fn ngram(text: &[i32], n: usize) -> HashSet<usize> {
     let mut ngrams = HashSet::default();
     for i in 0..text.len() - n + 1 {
@@ -90,6 +138,20 @@ pub fn ngram(text: &[i32], n: usize) -> HashSet<usize> {
     ngrams
 }
 
+/// Compute n-grams of a text using rolling hash.
+///
+/// # Examples
+///
+/// ```
+/// let text = vec![1, 2, 3, 4, 5];
+/// let ngrams = near_duplicate_matching::ngram_rolling(&text, 2);
+/// assert_eq!(ngrams.len(), 4);
+/// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+/// for c in vec![1, 2].iter().map(|v| *v as u64) {
+///    rolling_hash.append(c);
+/// }
+/// assert_eq!(ngrams.contains(&(rolling_hash.get_hash() as usize)), true);
+/// ```
 pub fn ngram_rolling(text: &[i32], n: usize) -> HashSet<usize> {
     let mut ngrams = HashSet::default();
     for i in 0..text.len() - n + 1 {
@@ -138,9 +200,10 @@ mod tests {
     fn test_query_contain() {
         let query = vec![1, 2, 3, 4, 5];
         let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        let query_ngram = ngram(&query, 10);
+
+        let query_ngram = ngram(&query, 3);
         let threshold = 0.8;
-        let n = 10;
+        let n = 3;
         assert_eq!(
             has_doc_duplicate(doc, &query, &query_ngram, threshold, n),
             true
@@ -182,6 +245,18 @@ mod tests {
     }
 }
 
+///  Check whether the document contains spans whose similarity to the query is above a threshold using rabin-karp method with fxhash.
+///
+/// # Examples
+/// ```
+/// let query = vec![1, 2, 3, 4, 5];
+/// let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+/// let n = 3;
+/// let query_ngram = near_duplicate_matching::ngram(&query, n);
+/// let sim_threshold = 0.8;
+/// assert_eq!(near_duplicate_matching::has_doc_duplicate(doc, &query, &query_ngram, sim_threshold, n), true);
+/// ```
+///
 pub fn has_doc_duplicate(
     doc: Vec<i32>,
     query: &[i32],
@@ -206,6 +281,15 @@ pub fn has_doc_duplicate(
     return false;
 }
 
+///  Check whether the document contains spans whose similarity to the query is above a threshold using naive method.
+///
+/// # Examples
+/// ```
+/// let query = vec![1, 2, 3, 4, 5];
+/// let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+/// let sim_threshold = 0.8;
+/// assert_eq!(near_duplicate_matching::has_doc_duplicate_naive(doc, &query, sim_threshold), true);
+/// ```
 pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], threshold: f64) -> bool {
     for start in 0..doc.len() - query.len() {
         let sim = weighted_jaccard(&query, &doc[start..start + query.len()]);
@@ -216,6 +300,18 @@ pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], threshold: f64) -> 
     return false;
 }
 
+/// Check whether the document contains spans whose similarity to the query is above a threshold using rabin-karp method with rolling hash.
+///
+/// # Examples
+///
+/// ```
+/// let query = vec![1, 2, 3, 4, 5];
+/// let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+/// let n = 3;
+/// let query_ngram = near_duplicate_matching::ngram_rolling(&query, n);
+/// let sim_threshold = 0.8;
+/// assert_eq!(near_duplicate_matching::has_doc_duplicate_rolling(doc, &query, &query_ngram, sim_threshold, n), true);
+/// ```
 pub fn has_doc_duplicate_rolling(
     doc: Vec<i32>,
     query: &[i32],
@@ -246,86 +342,4 @@ pub fn has_doc_duplicate_rolling(
         rollinghash.slide(doc[start] as u64, doc[start + n] as u64);
     }
     return false;
-}
-
-pub fn convert_to_token_ids(line: String) -> Vec<i32> {
-    let json_data: Value = serde_json::from_str(&line).expect("Failed to parse JSON");
-    if let Some(token_ids) = json_data["token_ids"].as_array() {
-        let token_ids: Vec<i32> = token_ids
-            .iter()
-            .filter_map(|v| v.as_i64())
-            .map(|v| v as i32)
-            .collect();
-        return token_ids;
-    }
-    Vec::new()
-}
-
-pub fn read_dir_recursive(dir_path: impl AsRef<Path>) -> Vec<PathBuf> {
-    let mut all_paths = Vec::new();
-    if let Ok(entries) = fs::read_dir(dir_path) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                all_paths.extend(read_dir_recursive(&path));
-            } else {
-                all_paths.push(path);
-            }
-        }
-    }
-    all_paths.sort_by_key(|path| {
-        // split file path with "/"
-        let filename = path.file_name().unwrap().to_str().unwrap();
-        let numeric_part = filename
-            .chars()
-            .take_while(|c| c.is_numeric())
-            .collect::<String>(); // ファイル名から数字部分を抽出
-        numeric_part.parse::<u32>().unwrap_or(0) // 数字部分を数値に変換
-    });
-
-    all_paths
-}
-
-pub fn search(query: &Vec<Vec<i32>>, path: &str, threshold: f32, n: usize) -> Vec<i32> {
-    let query_list = query.clone();
-    let query_ngram_list = query_list
-        .iter()
-        .map(|query| ngram(query, n))
-        .collect::<Vec<HashSet<usize>>>();
-
-    let file = File::open(path).expect("Failed to open file");
-    //let reader = BufReader::new(MultiGzDecoder::new(file));
-    let reader = BufReader::new(GzDecoder::new(file));
-    let query_num = query_list.len();
-
-    info!("path: {:?} start loading token_ids_list", path);
-    let mut token_ids_list = Vec::new();
-    for line in reader.lines() {
-        if let Ok(line) = line {
-            let token_ids = convert_to_token_ids(line);
-            token_ids_list.push(token_ids);
-        }
-    }
-    info!("loaded token_ids_list");
-
-    // multi thread per query
-    let count_list = (0..query_num)
-        .into_par_iter()
-        .map(|i| {
-            let query = &query_list[i];
-            let query_ngram = &query_ngram_list[i];
-            let mut count = 0;
-
-            for token_ids in &token_ids_list {
-                if has_doc_duplicate(token_ids.clone(), &query, &query_ngram, threshold as f64, n) {
-                    count += 1;
-                }
-            }
-            info!("query: {:?} count: {:?}", i, count);
-            count
-        })
-        .collect::<Vec<i32>>()
-        .try_into()
-        .unwrap();
-    count_list
 }

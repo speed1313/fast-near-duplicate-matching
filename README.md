@@ -1,9 +1,14 @@
-# Fast Near-duplicate Matching
+# Fast Near-duplicate Matching  &emsp; [![Build Status]][actions] [![Latest Version]][crates.io]
+
+
+[Latest Version]: https://img.shields.io/crates/v/serde.svg
+[crates.io]: https://crates.io/crates/serde
+
+
 
 Fast near-duplicate matching is a method for quickly finding near-duplicate spans in a document by utilizing the [Rabin-Karp algorithm](https://en.wikipedia.org/wiki/Rabin%E2%80%93Karp_algorithm). This algorithm can be used to count the near-duplicates of a query in a pre-training corpus, facilitating the analysis of memorization in Large Language Models (LLMs).
 
-This repository contains the implementation of the fast near-duplicate matching algorithm and the benchmark for the algorithm in Rust.
-
+This repository contains the implementation of the fast near-duplicate matching algorithm and the benchmark for the algorithm in Rust. The core functionalities is provided as a crate [```near_duplicate_matching```]().
 
 ## Method
 ### Fast Near-duplicate Matching
@@ -46,13 +51,13 @@ $ cargo run --release -- --search-dir ./sample_data --query-path ./sample_data/q
 [2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] count: [1, 1]
 ```
 
-### Exploring the Pythia Dataset
+### Count near-duplicates in the Pythia dataset
 You can download the Pythia dataset from [here](https://github.com/EleutherAI/pythia?tab=readme-ov-file#exploring-the-dataset)
-After downloading the dataset, you can run the following command:
+After downloading the dataset, you can convert the dataset to the format that this program can read by running the following command:
 ```bash
 $ python scripts/prepare_pythia.py --output_dir path/to/output/folder --pythia_data_path path/to/merged/folder/document
 ```
-Then, you can run the following command:
+Then, you can count the near-duplicates of queries in the Pythia dataset by running the following command:
 ```bash
 $ cargo run --release -- --search-dir path/to/output/folder --query-path path/to/output/folder/query.jsonl --threshold 0.6 --n 10
 ```
