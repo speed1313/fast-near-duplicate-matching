@@ -1,14 +1,13 @@
-# Fast Near-duplicate Matching  &emsp; [![Build Status]][actions] [![Latest Version]][crates.io]
+# Fast Near-duplicate Matching  &emsp; [![Latest Version]][crates.io]
 
-
-[Latest Version]: https://img.shields.io/crates/v/serde.svg
-[crates.io]: https://crates.io/crates/serde
+[Latest Version]: https://img.shields.io/crates/v/neardup.svg
+[crates.io]: https://crates.io/crates/neardup
 
 
 
 Fast near-duplicate matching is a method for quickly finding near-duplicate spans in a document by utilizing the [Rabin-Karp algorithm](https://en.wikipedia.org/wiki/Rabin%E2%80%93Karp_algorithm). This algorithm can be used to count the near-duplicates of a query in a pre-training corpus, facilitating the analysis of memorization in Large Language Models (LLMs).
 
-This repository contains the implementation of the fast near-duplicate matching algorithm and the benchmark for the algorithm in Rust. The core functionalities is provided as a crate [```near_duplicate_matching```]().
+This repository contains the implementation of the fast near-duplicate matching algorithm and the benchmark for the algorithm in Rust. The core functionalities is provided as a crate [```neardup```]().
 
 ## Method
 ### Fast Near-duplicate Matching
@@ -41,14 +40,14 @@ You can count the near-duplicates of queries in the document (sample queries (2 
 
 ```bash
 $ cargo run --release -- --search-dir ./sample_data --query-path ./sample_data/query.jsonl --threshold 0.6 --n 10
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] query_list_all: 2
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] search_path_list len: 1
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] path: "./sample_data/pythia-00000-00999.jsonl.gz" start loading token_ids_list
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] loaded token_ids_list
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] query: 0 count: 1
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching::lib] query: 1 count: 1
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] path idx: 0 finished
-[2024-08-05T03:32:03Z INFO  fast_near_duplicate_matching] count: [1, 1]
+[2024-08-07T10:59:40Z INFO  neardup] query_list_all: 2
+[2024-08-07T10:59:40Z INFO  neardup] search_path_list len: 1
+[2024-08-07T10:59:40Z INFO  neardup] path: "./sample_data/pythia-00000-00999.jsonl.gz" start loading token_ids_list
+[2024-08-07T10:59:40Z INFO  neardup] loaded token_ids_list
+[2024-08-07T10:59:40Z INFO  neardup] query: 0 count: 1
+[2024-08-07T10:59:40Z INFO  neardup] query: 1 count: 1
+[2024-08-07T10:59:40Z INFO  neardup] path idx: 0 finished
+[2024-08-07T10:59:40Z INFO  neardup] count: [1, 1]
 ```
 
 ### Count near-duplicates in the Pythia dataset

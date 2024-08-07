@@ -1,5 +1,5 @@
 [package]
-name = "near-duplicate-matching"
+name = "neardup"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -9,23 +9,23 @@ description = "A library for near-duplicate matching"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5.1", features = ["derive"] }
-flate2 = "1.0.31"
 fxhash = "0.2.1"
-indicatif = "0.17.8"
-log = "0.4.22"
-rand = "0.8.5"
-rayon = "1.10.0"
 rustc-hash = "2.0.0"
 serde_json = "1.0.122"
 serde = { version = "1.0.197", features = ["derive"] }
 walkdir = "2.5.0"
 env_logger = "0.11.5"
-
+rayon = "1.10.0"
+rand = "0.8.5"
+log = "0.4.22"
+indicatif = "0.17.8"
+flate2 = "1.0.31"
+clap = { version = "4.5.1", features = ["derive"] }
 
 
 
 [dev-dependencies]
+
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]

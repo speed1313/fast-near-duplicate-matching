@@ -1,8 +1,8 @@
 use clap::Parser;
 use env_logger;
-use near_duplicate_matching::{has_doc_duplicate, ngram};
 use flate2::read::GzDecoder;
 use log::info;
+use neardup::{has_doc_duplicate, ngram};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet as HashSet;
 use serde::{Deserialize, Serialize};

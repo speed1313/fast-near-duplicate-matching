@@ -1,7 +1,28 @@
-//! # near_duplicate_matching
+//! # neardup
 //!
-//! `near_duplicate_matching` is a library for finding near-duplicate spans in a document.
+//! `neardup` is a library for finding near-duplicate spans in a document.
 //! It provides functions to compute n-grams of a text, calculate weighted jaccard similarity, and check whether the document contains spans whose similarity to the query is above a threshold.
+//! ## Method
+//! ### Fast Near-duplicate Matching
+//! - Input: Suffix $s$, document $d$, and $n$ of $n$-gram
+//! - Output: Whether $d$ has a span near-duplicate to $s$
+//! #### Pseudo-code in Python
+//! ```python
+//! def fast_near_duplicate_matching(s: list[int], d: list[int], n: int, threshold: float) -> bool:
+//!     l_s = len(s)
+//!     l_d = len(d)
+//!     H = set(ngram(s, n))
+//!     for i in range(max(l_d - l_s, 0)):
+//!         if d[i:i+n] in H:
+//!             for j in range(max(i - l_s + n, 0), i):
+//!                 t = d[j:j+l_s]
+//!                 if Jaccard_W(s, t) >= threshold:
+//!                     return True
+//!     return False
+//! ```
+//!
+//! You can use fast hash functions like [fxhash](https://docs.rs/fxhash/latest/fxhash/) or [rolling hash](https://en.wikipedia.org/wiki/Rolling_hash).
+//! When the size of $n$ of $n$-gram is small, fxhash is faster than rolling hash. However, when the size of $n$ is large, rolling hash is faster than fxhash because the rolling hash can calculate the hash value of the next $n$-gram in $O(1)$ time.
 
 use fxhash;
 
@@ -14,7 +35,7 @@ use std::collections::HashMap;
 /// # Examples
 /// ```
 /// let text = vec![1, 2, 3, 4, 5];
-/// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+/// let mut rolling_hash = neardup::RollingHash::new();
 /// for c in text.iter().map(|v| *v as u64) {
 ///    rolling_hash.append(c);
 /// }
@@ -43,7 +64,7 @@ impl RollingHash {
     /// # Examples
     /// ```
     /// let text = vec![1, 2, 3, 4, 5];
-    /// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+    /// let mut rolling_hash = neardup::RollingHash::new();
     /// for c in text.iter().map(|v| *v as u64) {
     ///   rolling_hash.append(c);
     /// }
@@ -63,7 +84,7 @@ impl RollingHash {
     /// # Examples
     /// ```
     /// let text = vec![1, 2, 3, 4, 5];
-    /// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+    /// let mut rolling_hash = neardup::RollingHash::new();
     /// for c in text.iter().map(|v| *v as u64) {
     ///     rolling_hash.append(c);
     /// }
@@ -80,7 +101,7 @@ impl RollingHash {
     /// # Examples
     /// ```
     /// let text = vec![1, 2, 3, 4, 5];
-    /// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+    /// let mut rolling_hash = neardup::RollingHash::new();
     /// for c in text.iter().map(|v| *v as u64) {
     ///     rolling_hash.append(c);
     /// }
@@ -126,7 +147,7 @@ pub fn weighted_jaccard(text1: &[i32], text2: &[i32]) -> f64 {
 ///
 /// ```
 /// let text = vec![1, 2, 3, 4, 5];
-/// let ngrams = near_duplicate_matching::ngram(&text, 2);
+/// let ngrams = neardup::ngram(&text, 2);
 /// assert_eq!(ngrams.len(), 4);
 /// assert_eq!(ngrams.contains(&fxhash::hash(&vec![1, 2])), true);
 /// ```
@@ -144,9 +165,9 @@ pub fn ngram(text: &[i32], n: usize) -> HashSet<usize> {
 ///
 /// ```
 /// let text = vec![1, 2, 3, 4, 5];
-/// let ngrams = near_duplicate_matching::ngram_rolling(&text, 2);
+/// let ngrams = neardup::ngram_rolling(&text, 2);
 /// assert_eq!(ngrams.len(), 4);
-/// let mut rolling_hash = near_duplicate_matching::RollingHash::new();
+/// let mut rolling_hash = neardup::RollingHash::new();
 /// for c in vec![1, 2].iter().map(|v| *v as u64) {
 ///    rolling_hash.append(c);
 /// }
@@ -252,9 +273,9 @@ mod tests {
 /// let query = vec![1, 2, 3, 4, 5];
 /// let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 /// let n = 3;
-/// let query_ngram = near_duplicate_matching::ngram(&query, n);
+/// let query_ngram = neardup::ngram(&query, n);
 /// let sim_threshold = 0.8;
-/// assert_eq!(near_duplicate_matching::has_doc_duplicate(doc, &query, &query_ngram, sim_threshold, n), true);
+/// assert_eq!(neardup::has_doc_duplicate(doc, &query, &query_ngram, sim_threshold, n), true);
 /// ```
 ///
 pub fn has_doc_duplicate(
@@ -288,7 +309,7 @@ pub fn has_doc_duplicate(
 /// let query = vec![1, 2, 3, 4, 5];
 /// let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 /// let sim_threshold = 0.8;
-/// assert_eq!(near_duplicate_matching::has_doc_duplicate_naive(doc, &query, sim_threshold), true);
+/// assert_eq!(neardup::has_doc_duplicate_naive(doc, &query, sim_threshold), true);
 /// ```
 pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], threshold: f64) -> bool {
     for start in 0..doc.len() - query.len() {
@@ -308,9 +329,9 @@ pub fn has_doc_duplicate_naive(doc: Vec<i32>, query: &[i32], threshold: f64) -> 
 /// let query = vec![1, 2, 3, 4, 5];
 /// let doc = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 /// let n = 3;
-/// let query_ngram = near_duplicate_matching::ngram_rolling(&query, n);
+/// let query_ngram = neardup::ngram_rolling(&query, n);
 /// let sim_threshold = 0.8;
-/// assert_eq!(near_duplicate_matching::has_doc_duplicate_rolling(doc, &query, &query_ngram, sim_threshold, n), true);
+/// assert_eq!(neardup::has_doc_duplicate_rolling(doc, &query, &query_ngram, sim_threshold, n), true);
 /// ```
 pub fn has_doc_duplicate_rolling(
     doc: Vec<i32>,

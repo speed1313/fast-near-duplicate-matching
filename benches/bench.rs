@@ -1,4 +1,4 @@
-use near_duplicate_matching as lib;
+use neardup;
 
 use rand::Rng;
 
@@ -35,19 +35,25 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("has_doc_duplicate", |b| {
         b.iter(|| {
-            let ngram = lib::ngram(&queries[0], n);
-            lib::has_doc_duplicate(doc.clone(), &queries[0], &ngram, threshold as f64, n)
+            let ngram = neardup::ngram(&queries[0], n);
+            neardup::has_doc_duplicate(doc.clone(), &queries[0], &ngram, threshold as f64, n)
         })
     });
     c.bench_function("has_doc_duplicate_rolling", |b| {
         b.iter(|| {
-            let ngram = lib::ngram_rolling(&queries[0], n);
-            lib::has_doc_duplicate_rolling(doc.clone(), &queries[0], &ngram, threshold as f64, n)
+            let ngram = neardup::ngram_rolling(&queries[0], n);
+            neardup::has_doc_duplicate_rolling(
+                doc.clone(),
+                &queries[0],
+                &ngram,
+                threshold as f64,
+                n,
+            )
         })
     });
     // c.bench_function("has_doc_duplicate_naive", |b| {
     //     b.iter(|| {
-    //         lib::has_doc_duplicate_naive(
+    //         neardup::has_doc_duplicate_naive(
     //             doc.clone(),
     //             &queries[0],
     //             args.threshold as f64,
