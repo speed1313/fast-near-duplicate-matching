@@ -71,7 +71,23 @@ You can run the benchmark for the three methods:
 $ cargo bench
 ```
 
-
+## Citation
+```
+@inproceedings{kiyomaru-etal-2024-comprehensive-analysis,
+    title = "A Comprehensive Analysis of Memorization in Large Language Models",
+    author = "Kiyomaru, Hirokazu  and
+      Sugiura, Issa  and
+      Kawahara, Daisuke  and
+      Kurohashi, Sadao",
+    booktitle = "Proceedings of the 17th International Natural Language Generation Conference",
+    month = sep,
+    year = "2024",
+    address = "Tokyo, Japan",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.inlg-main.45",
+    pages = "584--596",
+}
+```
 
 ## References
 - [Rabin-Karp algorithm](https://en.wikipedia.org/wiki/Rabin%E2%80%93Karp_algorithm)
